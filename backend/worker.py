@@ -8,6 +8,7 @@ from zipfile import ZIP_STORED, ZipFile
 
 from yt_dlp import YoutubeDL
 
+from backend.cookies import load_cookies
 from backend.files import directory_bytes
 from backend.urls import canonical_url
 
@@ -22,7 +23,7 @@ class QuietLogger:
     def error(self, _): pass
 
 
-def download(job, directory: Path, max_bytes: int, max_duration: int):
+def download(job, directory: Path, max_bytes: int, max_duration: int, *, cookie_root=None):
     _, url = canonical_url(job["url"])
     directory.mkdir(parents=True, exist_ok=True)
     last_progress = -1
@@ -54,6 +55,11 @@ def download(job, directory: Path, max_bytes: int, max_duration: int):
     if job["kind"] == "audio":
         options["postprocessors"] = [{"key": "FFmpegExtractAudio", "preferredcodec": "m4a"}]
     with YoutubeDL(options) as ydl:
+        if cookie_root is not None:
+            # Copy into yt-dlp's in-memory jar. It cannot rewrite the saved file or
+            # restore it after removal, and no credential enters a job directory.
+            for cookie in load_cookies(Path(cookie_root)):
+                ydl.cookiejar.set_cookie(cookie)
         info = ydl.extract_info(url, download=False)
         if not info or info.get("_type", "video") != "video":
             raise ValueError("This link did not return an individual video.")
@@ -88,7 +94,8 @@ def download(job, directory: Path, max_bytes: int, max_duration: int):
 if __name__ == "__main__":
     try:
         download(json.loads(sys.stdin.read()), Path(sys.argv[1]),
-                 int(os.environ["MAX_ARCHIVE_BYTES"]), int(os.environ["MAX_DURATION_SECONDS"]))
+                 int(os.environ["MAX_ARCHIVE_BYTES"]), int(os.environ["MAX_DURATION_SECONDS"]),
+                 cookie_root=os.environ.get("YOUTUBE_COOKIE_ROOT"))
     except Exception as exc:
         emit(error=str(exc)[-600:])
         sys.exit(1)

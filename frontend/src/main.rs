@@ -304,12 +304,123 @@ fn App() -> impl IntoView {
                         <button class="secondary" type="submit" disabled=move || busy.get()>"Connect server"</button>
                     </form>
                     <Show when=move || connection.get().is_some()>
+                        <CookieSettings connection/>
                         <button class="text-button" on:click=move |_| {connection.set(None); jobs.set(vec![]); access_key.set(String::new()); notice.set(String::new());}>"Disconnect and clear key"</button>
                     </Show>
                 </details>
             </main>
             <footer><span>"Made for keeping."</span><p>"Download public-domain videos and videos you have permission to download. Copyright status is not automatically verified."</p></footer>
         </div>
+    }
+}
+
+#[component]
+fn CookieSettings(connection: RwSignal<Option<(String, String)>>) -> impl IntoView {
+    let configured = RwSignal::new(None::<bool>);
+    let busy = RwSignal::new(false);
+    let message = RwSignal::new(String::new());
+    let failed = RwSignal::new(false);
+    Effect::new(move |_| {
+        if let Some((base, key)) = connection.get() {
+            configured.set(None);
+            spawn_local(async move {
+                match api(&base, &key, "GET", "/api/settings/youtube-cookies", None).await {
+                    Ok(data) => configured.set(data["configured"].as_bool()),
+                    Err(error) => {
+                        failed.set(true);
+                        message.set(error);
+                    }
+                }
+            });
+        }
+    });
+    let upload = move |event: web_sys::Event| {
+        let input = event_target::<web_sys::HtmlInputElement>(&event);
+        let file = input.files().and_then(|files| files.get(0));
+        input.set_value("");
+        let Some(file) = file else {
+            return;
+        };
+        let Some((base, key)) = connection.get_untracked() else {
+            return;
+        };
+        message.set(String::new());
+        failed.set(false);
+        if file.size() > 65536.0 {
+            failed.set(true);
+            message.set("Cookie file must be 64 KiB or smaller.".into());
+            return;
+        }
+        busy.set(true);
+        spawn_local(async move {
+            let result = async {
+                let content = wasm_bindgen_futures::JsFuture::from(file.text())
+                    .await
+                    .ok()
+                    .and_then(|value| value.as_string())
+                    .ok_or_else(|| "Could not read this cookie file.".to_string())?;
+                api(
+                    &base,
+                    &key,
+                    "POST",
+                    "/api/settings/youtube-cookies",
+                    Some(json!({"cookies": content})),
+                )
+                .await
+            }
+            .await;
+            match result {
+                Ok(_) => {
+                    configured.set(Some(true));
+                    message.set("YouTube cookies saved. You can retry the download.".into());
+                }
+                Err(error) => {
+                    failed.set(true);
+                    message.set(error);
+                }
+            }
+            busy.set(false);
+        });
+    };
+    let remove = move |_| {
+        let Some((base, key)) = connection.get_untracked() else {
+            return;
+        };
+        busy.set(true);
+        failed.set(false);
+        message.set(String::new());
+        spawn_local(async move {
+            match api(&base, &key, "DELETE", "/api/settings/youtube-cookies", None).await {
+                Ok(_) => {
+                    configured.set(Some(false));
+                    message.set("YouTube cookies removed.".into());
+                }
+                Err(error) => {
+                    failed.set(true);
+                    message.set(error);
+                }
+            }
+            busy.set(false);
+        });
+    };
+    view! {
+        <section class="cookie-settings" aria-labelledby="cookies-heading">
+            <h3 id="cookies-heading">"YouTube sign-in cookies (optional)"</h3>
+            <p>"Upload a Netscape-format cookies.txt file containing only youtube.com cookies. It grants this server your YouTube session. Anyone with the server access key can replace or remove it. Only use a server you trust. Cookies may expire, and YouTube can still block downloads or restrict your account."</p>
+            <p>"Cookies stay on the server until removed. They are never included in downloads. Changes apply to new downloads; removing cookies does not stop a download already running."</p>
+            <p role="status">{move || match configured.get() {
+                Some(true) => "YouTube cookies are saved on this server.",
+                Some(false) => "No YouTube cookies saved.",
+                None => "Checking saved cookies…",
+            }}</p>
+            <label for="youtube-cookies">"Upload YouTube cookies.txt"
+                <input id="youtube-cookies" type="file" accept=".txt,text/plain"
+                    disabled=move || busy.get() on:change=upload/>
+            </label>
+            <button class="text-button" type="button" disabled=move || busy.get() || configured.get() != Some(true)
+                on:click=remove>"Remove saved YouTube cookies"</button>
+            <p aria-live="polite" class:error=move || failed.get()>{move || message.get()}</p>
+        </section>
     }
 }
 

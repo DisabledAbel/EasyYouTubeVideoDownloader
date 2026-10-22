@@ -22,6 +22,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from backend.cookies import MAX_COOKIE_BYTES, cookie_path, save_cookies
 from backend.files import directory_bytes
 from backend.store import Store, public_job
 from backend.urls import canonical_url
@@ -39,7 +40,8 @@ async def run_download(store, job, max_bytes, timeout, duration):
     directory = store.root / job["id"]
     directory.mkdir(exist_ok=True)
     store.update(job["id"], status="downloading", error="")
-    env = {**os.environ, "MAX_ARCHIVE_BYTES": str(max_bytes), "MAX_DURATION_SECONDS": str(duration)}
+    env = {**os.environ, "MAX_ARCHIVE_BYTES": str(max_bytes), "MAX_DURATION_SECONDS": str(duration),
+           "YOUTUBE_COOKIE_ROOT": str(store.root)}
     process = await asyncio.create_subprocess_exec(
         sys.executable, "-m", "backend.worker", str(directory),
         stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
@@ -173,6 +175,36 @@ def create_app(*, data_dir=None, api_key=None, frontend_dir=None, runner=run_dow
     @app.get("/health")
     def health():
         return {"status": "ok"}
+
+    @app.get("/api/settings/youtube-cookies", dependencies=[Depends(authorized)])
+    async def cookie_status():
+        return {"configured": cookie_path(root).is_file()}
+
+    @app.post("/api/settings/youtube-cookies", dependencies=[Depends(authorized)])
+    async def upload_cookies(request: Request):
+        # Bound the streamed JSON envelope before parsing; validation errors must not
+        # echo the submitted credentials (including FastAPI/Pydantic input values).
+        chunks = bytearray()
+        async for chunk in request.stream():
+            if len(chunks) + len(chunk) > MAX_COOKIE_BYTES * 6 + 1024:
+                raise HTTPException(413, "Cookie file must be 64 KiB or smaller.")
+            chunks.extend(chunk)
+        try:
+            body = json.loads(chunks)
+        except (ValueError, UnicodeError):
+            raise HTTPException(422, "Choose a valid YouTube cookies.txt file.") from None
+        if not isinstance(body, dict) or set(body) != {"cookies"} or not isinstance(body["cookies"], str):
+            raise HTTPException(422, "Choose a valid YouTube cookies.txt file.")
+        try:
+            save_cookies(root, body["cookies"])
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        return {"configured": True}
+
+    @app.delete("/api/settings/youtube-cookies", dependencies=[Depends(authorized)])
+    async def remove_cookies():
+        cookie_path(root).unlink(missing_ok=True)
+        return {"configured": False}
 
     @app.get("/api/jobs", dependencies=[Depends(authorized)])
     async def list_jobs():
