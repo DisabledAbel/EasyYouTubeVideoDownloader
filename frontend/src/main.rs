@@ -74,6 +74,28 @@ fn App() -> impl IntoView {
     } else {
         configured.to_string()
     });
+    let theme = RwSignal::new(
+        web_sys::window()
+            .and_then(|window| window.local_storage().ok().flatten())
+            .and_then(|storage| storage.get_item("download-theme").ok().flatten())
+            .filter(|value| matches!(value.as_str(), "system" | "light" | "dark"))
+            .unwrap_or_else(|| "system".into()),
+    );
+    Effect::new(move |_| {
+        let value = theme.get();
+        if let Some(window) = web_sys::window() {
+            if let Some(root) = window
+                .document()
+                .and_then(|document| document.document_element())
+            {
+                let _ = root.set_attribute("data-theme", &value);
+            }
+            // Appearance remains usable when browser storage is unavailable.
+            if let Ok(Some(storage)) = window.local_storage() {
+                let _ = storage.set_item("download-theme", &value);
+            }
+        }
+    });
     let access_key = RwSignal::new(String::new());
     // Active connection is separate from editable settings, avoiding requests to half-edited URLs.
     let connection = RwSignal::new(None::<(String, String)>);
@@ -127,7 +149,7 @@ fn App() -> impl IntoView {
             }
             _ => {
                 error.set(
-                    "Enter a server origin such as https://archive.example.com, without a path."
+                    "Enter a server origin such as https://downloads.example.com, without a path."
                         .into(),
                 );
                 return;
@@ -151,7 +173,7 @@ fn App() -> impl IntoView {
                 Ok(()) => {
                     connection.set(Some((base, key)));
                     poll_error.set(String::new());
-                    notice.set("Connected. Your archive is ready.".into());
+                    notice.set("Connected. Your downloads are ready.".into());
                 }
                 Err(message) => error.set(message),
             }
@@ -159,7 +181,7 @@ fn App() -> impl IntoView {
         });
     };
 
-    let archive = move |event: web_sys::SubmitEvent| {
+    let start_download = move |event: web_sys::SubmitEvent| {
         event.prevent_default();
         if busy.get_untracked() {
             return;
@@ -176,7 +198,7 @@ fn App() -> impl IntoView {
                 Ok(data) => {
                     notice.set(
                         if data["duplicate"] == true {
-                            "This video is already in your archive."
+                            "This video is already in your downloads."
                         } else {
                             "Added to the download queue."
                         }
@@ -200,9 +222,19 @@ fn App() -> impl IntoView {
                     <span class="brand-mark" aria-hidden="true">"↧"</span>
                     <span>"Easy YouTube"<br/><strong>"Video Downloader"</strong></span>
                 </a>
+                <div class="header-controls">
+                <label class="theme-control" for="theme">"Appearance"
+                    <select id="theme" prop:value=move || theme.get()
+                        on:change=move |event| theme.set(event_target_value(&event))>
+                        <option value="system">"System"</option>
+                        <option value="light">"Light"</option>
+                        <option value="dark">"Dark"</option>
+                    </select>
+                </label>
                 <span class="connection"><span class:online=move || connection.get().is_some()></span>
                     {move || if connection.get().is_some() { "Server connected" } else { "Connect your server" }}
                 </span>
+                </div>
             </header>
             <main>
                 <section class="hero">
@@ -211,14 +243,14 @@ fn App() -> impl IntoView {
                     <p class="intro">"Save a video. Preserve its story. An uncomplicated home for the recordings you want to hold on to."</p>
                 </section>
                 <section class="download-panel" aria-labelledby="download-heading">
-                    <div class="panel-heading"><h2 id="download-heading">"Start an archive"</h2><span>"01 / ADD A VIDEO"</span></div>
-                    <form on:submit=archive>
+                    <div class="panel-heading"><h2 id="download-heading">"Start a download"</h2><span>"01 / ADD A VIDEO"</span></div>
+                    <form on:submit=start_download>
                         <label for="video-url">"YouTube video link"</label>
                         <div class="url-row">
                             <input id="video-url" type="url" placeholder="https://www.youtube.com/watch?v=…" required
                                 prop:value=move || url.get() on:input=move |e| url.set(event_target_value(&e))/>
                             <button class="primary" type="submit" disabled=move || busy.get() || connection.get().is_none()>
-                                {move || if busy.get() { "Please wait…" } else { "Archive video ↗" }}
+                                {move || if busy.get() { "Please wait…" } else { "Download video ↗" }}
                             </button>
                         </div>
                         <div class="options">
@@ -232,7 +264,7 @@ fn App() -> impl IntoView {
                                 on:change=move |e| captions.set(event_target_checked(&e))/><span>"Include English captions when available"</span></label>
                         </div>
                     </form>
-                    <p class="panel-note">"Every archive includes the source link, description, metadata, and download date."</p>
+                    <p class="panel-note">"Every download includes the source link, description, metadata, and download date."</p>
                 </section>
                 <div class="messages" aria-live="polite">
                     <Show when=move || !error.get().is_empty()><p class="error" role="alert">{move || error.get()}</p></Show>
@@ -240,7 +272,7 @@ fn App() -> impl IntoView {
                     <Show when=move || !poll_error.get().is_empty()><p class="error">{move || poll_error.get()}</p></Show>
                 </div>
                 <section class="library" aria-labelledby="library-heading">
-                    <div class="section-heading"><h2 id="library-heading">"Your archive"</h2><span>{move || format!("{:02} recordings", jobs.get().len())}</span></div>
+                    <div class="section-heading"><h2 id="library-heading">"Your downloads"</h2><span>{move || format!("{:02} recordings", jobs.get().len())}</span></div>
                     <Show when=move || jobs.get().is_empty()>
                         <div class="empty"><span aria-hidden="true">"▤"</span><h3>"Good things deserve a place."</h3><p>"Your saved recordings will appear here."</p></div>
                     </Show>
@@ -265,7 +297,7 @@ fn App() -> impl IntoView {
                     </Show>
                 </details>
             </main>
-            <footer><span>"Made for keeping."</span><p>"Archive public-domain videos and videos you have permission to download. Copyright status is not automatically verified."</p></footer>
+            <footer><span>"Made for keeping."</span><p>"Download public-domain videos and videos you have permission to download. Copyright status is not automatically verified."</p></footer>
         </div>
     }
 }
@@ -325,8 +357,8 @@ fn JobCard(
             </div>
             <div class="job-actions">
                 <Show when=move || ready>
-                    <button class="secondary" on:click={let id=id.clone(); move |_| download(id.clone(), "media")}>"Save media ↓"</button>
-                    <button class="text-button" on:click={let id=id2.clone(); move |_| download(id.clone(), "bundle")}>"Full archive ZIP ↓"</button>
+                    <button class="secondary" on:click={let id=id.clone(); move |_| download(id.clone(), "media")}>"Download media ↓"</button>
+                    <button class="text-button" on:click={let id=id2.clone(); move |_| download(id.clone(), "bundle")}>"Download ZIP ↓"</button>
                 </Show>
                 <Show when=move || deletable>
                     <button class="text-button delete" on:click={let id=id3.clone(); move |_| {
