@@ -3,6 +3,7 @@ import contextlib
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import secrets
@@ -24,6 +25,8 @@ from pydantic import BaseModel, Field
 from backend.files import directory_bytes
 from backend.store import Store, public_job
 from backend.urls import canonical_url
+
+logger = logging.getLogger(__name__)
 
 
 class ArchiveRequest(BaseModel):
@@ -105,20 +108,29 @@ def create_app(*, data_dir=None, api_key=None, frontend_dir=None, runner=run_dow
 
     async def consume():
         while True:
-            cleanup()
-            pending = next((j for j in reversed(store.list()) if j["status"] == "queued"), None)
-            if pending:
-                try:
-                    await runner(store, pending, max_bytes, timeout, duration)
-                except asyncio.CancelledError:
-                    store.update(pending["id"], status="failed", error="Server stopped. Please try again.")
-                    shutil.rmtree(root / pending["id"], ignore_errors=True)
-                    raise
-                except Exception as exc:
-                    store.update(pending["id"], status="failed", error=str(exc)[:600])
-                    shutil.rmtree(root / pending["id"], ignore_errors=True)
-            else:
-                await asyncio.sleep(0.5)
+            try:
+                cleanup()
+                pending = next((j for j in reversed(store.list()) if j["status"] == "queued"), None)
+                if pending:
+                    try:
+                        await runner(store, pending, max_bytes, timeout, duration)
+                    except asyncio.CancelledError:
+                        try:
+                            store.update(pending["id"], status="failed", error="Server stopped. Please try again.")
+                        except Exception:
+                            logger.exception("Could not mark interrupted archive as failed")
+                        shutil.rmtree(root / pending["id"], ignore_errors=True)
+                        raise
+                    except Exception as exc:
+                        store.update(pending["id"], status="failed", error=str(exc)[:600])
+                        shutil.rmtree(root / pending["id"], ignore_errors=True)
+                else:
+                    await asyncio.sleep(0.5)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("Archive queue iteration failed; retrying")
+                await asyncio.sleep(1)
 
     @asynccontextmanager
     async def lifespan(_):

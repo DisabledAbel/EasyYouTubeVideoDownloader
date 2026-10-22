@@ -1,4 +1,5 @@
 import asyncio
+import sqlite3
 import sys
 import time
 from zipfile import ZipFile
@@ -175,3 +176,84 @@ def test_timeout_kills_worker(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="timed out"):
         asyncio.run(run_download(store, job, 1000000, 0, 7200))
     assert processes[0].returncode is not None
+
+
+@pytest.mark.parametrize("failure", ["cleanup", "selection", "failure_update"])
+def test_queue_recovers_from_transient_storage_errors(tmp_path, monkeypatch, caplog, failure):
+    async def exercise():
+        async def runner(store, job, *_):
+            if failure == "failure_update" and job["kind"] == "audio":
+                raise ValueError("Provider failed")
+            await fake_download(store, job)
+
+        app = create_app(data_dir=tmp_path, api_key=KEY, runner=runner)
+        store = app.state.store
+        failed = store.add("fKy7ljRr0AA", URL, "audio", True) if failure == "failure_update" else None
+        queued = store.add("fKy7ljRr0AA", URL, "video", True)
+        original_list, original_update = store.list, store.update
+        list_calls, injected = 0, False
+
+        def flaky_list():
+            nonlocal list_calls, injected
+            list_calls += 1
+            target = 1 if failure == "cleanup" else 2
+            if failure != "failure_update" and list_calls == target:
+                injected = True
+                raise sqlite3.OperationalError("database is locked")
+            return original_list()
+
+        def flaky_update(job_id, **fields):
+            nonlocal injected
+            if failure == "failure_update" and not injected and fields.get("status") == "failed":
+                injected = True
+                raise sqlite3.OperationalError("database is locked")
+            return original_update(job_id, **fields)
+
+        monkeypatch.setattr(store, "list", flaky_list)
+        monkeypatch.setattr(store, "update", flaky_update)
+        async with app.router.lifespan_context(app):
+            async with asyncio.timeout(5):
+                while store.get(queued["id"])["status"] != "ready":
+                    await asyncio.sleep(0.01)
+        assert injected
+        assert store.get(queued["id"])["status"] == "ready"
+        if failed:
+            assert store.get(failed["id"])["status"] == "failed"
+            assert store.get(failed["id"])["error"] == "Provider failed"
+
+    asyncio.run(exercise())
+    assert "Archive queue iteration failed; retrying" in caplog.text
+    assert "database is locked" in caplog.text
+
+
+def test_queue_cancellation_survives_storage_failure(tmp_path, monkeypatch, caplog):
+    async def exercise():
+        started = asyncio.Event()
+        cancelled = asyncio.Event()
+
+        async def runner(store, job, *_):
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+
+        app = create_app(data_dir=tmp_path, api_key=KEY, runner=runner)
+        store = app.state.store
+        job = store.add("fKy7ljRr0AA", URL, "video", True)
+        directory = tmp_path / job["id"]
+        directory.mkdir()
+        (directory / "partial").write_bytes(b"partial")
+
+        def unavailable(*args, **kwargs):
+            raise sqlite3.OperationalError("database is locked")
+
+        monkeypatch.setattr(store, "update", unavailable)
+        async with asyncio.timeout(5):
+            async with app.router.lifespan_context(app):
+                await started.wait()
+        assert cancelled.is_set()
+        assert not directory.exists()
+
+    asyncio.run(exercise())
+    assert "Could not mark interrupted archive as failed" in caplog.text
