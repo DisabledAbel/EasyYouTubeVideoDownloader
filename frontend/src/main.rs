@@ -324,7 +324,11 @@ fn CookieSettings(connection: RwSignal<Option<(String, String)>>) -> impl IntoVi
         if let Some((base, key)) = connection.get() {
             configured.set(None);
             spawn_local(async move {
-                match api(&base, &key, "GET", "/api/settings/youtube-cookies", None).await {
+                let result = api(&base, &key, "GET", "/api/settings/youtube-cookies", None).await;
+                if connection.try_get_untracked().flatten() != Some((base, key)) {
+                    return;
+                }
+                match result {
                     Ok(data) => configured.set(data["configured"].as_bool()),
                     Err(error) => {
                         failed.set(true);
