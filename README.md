@@ -164,21 +164,6 @@ Share the access key privately with trusted users. Anyone with it can see and de
 
 The Vercel HTTPS website requires an HTTPS backend; it cannot reliably use an HTTP localhost or private-network backend because of browser mixed-content and local-network restrictions. Use the local website when running everything locally. This repository does not provision or pay for a backend host.
 
-## Publishing images to GHCR
-
-The **Publish Docker image to GHCR** job in the **CI** workflow runs after backend tests, the frontend build, and container build/startup checks on both architectures pass. It publishes automatically on pushes to `main`. To publish manually, open **Actions → CI → Run workflow**, select `main`, and run it. Pull requests and manual runs on other branches do not publish.
-
-Images are published to `ghcr.io/disabledabel/easyyoutubevideodownloader` with two tags:
-
-- `latest`: the latest successfully published `main` commit.
-- `sha-<full-commit-sha>`: an image for a specific commit.
-
-The workflow uses GitHub's built-in `GITHUB_TOKEN` with `packages: write`; no PAT or extra repository secret is needed. Image labels link the package to this repository.
-
-**One-time owner setup after the first publish:** GitHub creates new container packages as private. On your GitHub profile, open **Packages → easyyoutubevideodownloader → Package settings → Change visibility → Public** so users can pull without signing in. See [GitHub's package visibility instructions](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility).
-
-If publishing reports a package permission error, check that the package grants Actions access to this repository and that repository or organization policy permits package writes. An existing private package requires authentication until its visibility is changed to public.
-
 ## Configuration
 
 See [.env.example](.env.example) for all settings. Python loads `.env` only when started with `--env-file .env` or via Docker Compose. Files are automatically removed after the retention period, so download your copies for long-term storage. ZIP storage roughly doubles the media's disk usage; with the defaults, allow at least 20 GiB plus working space for a full server. Use a host-level disk quota for a strict disk boundary.
