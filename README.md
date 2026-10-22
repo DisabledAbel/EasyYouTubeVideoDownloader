@@ -15,17 +15,15 @@ A simple video archiver for downloading public-domain and authorized YouTube vid
 
 Copyright status is not automatically determined. Archive videos you own, have permission to download, or have confirmed are public domain. Old recordings are not necessarily public domain.
 
-## Local or Vercel?
+## Choose how to run the app
 
 | Mode | Website | Download processing and files |
 | --- | --- | --- |
 | Local | Served by Python, or Trunk during development | The same local Python server |
 | Docker | Served by the container | The same container, with a persistent volume |
-| Vercel | Rust frontend compiled to static WebAssembly | A separately hosted Python backend with an HTTPS address |
+| GitHub Codespaces | Open the full app in your browser, including on iPad | Docker runs inside your codespace |
 
-**Vercel deployment hosts the frontend only.** This project does not run yt-dlp, FFmpeg, a persistent job queue, or video storage in Vercel functions. The browser connects directly to your backend, including for file downloads. A Vercel frontend without a running backend cannot download videos.
-
-See [Vercel function limits](https://vercel.com/docs/functions/limitations) and [Leptos CSR deployment](https://book.leptos.dev/deployment/csr.html).
+For an iPad-only development and testing setup, use [GitHub Codespaces](#run-in-github-codespaces-ipad-friendly). The website and Python backend run together there, so you do not need another computer or a separate hosting service.
 
 ## Run locally with Docker (recommended)
 
@@ -149,20 +147,49 @@ NO_COLOR=true "$HOME/.cargo/bin/trunk" serve
 
 Open [http://localhost:8080](http://localhost:8080) and use that address in server settings. Trunk forwards API requests to Python on port `8000`. To run the backend tests, first install `requirements-dev.txt` in your active virtual environment.
 
-## Deploy the frontend to Vercel
+## Run in GitHub Codespaces (iPad-friendly)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FDisabledAbel%2FEasyYouTubeVideoDownloader)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/DisabledAbel/EasyYouTubeVideoDownloader)
 
-**This button deploys the website only. You also need a running Python backend with HTTPS.** It uses this repository's default branch; merge the initial implementation PR before deploying from `main`.
+Codespaces runs the full app in a cloud development environment. You can create it, use its terminal, and open the app from Safari on your iPad. The button opens the creation page; it does not start the app automatically.
 
-1. Deploy the Python Docker container to a container host with an HTTPS endpoint and a persistent `/data` volume. Set a generated `ARCHIVE_API_KEY`, use port `8000`, and run one replica with one worker.
-2. Click **Deploy with Vercel** above. Use the repository root and **Other** as the framework. `vercel.json` supplies the build settings. Optionally set `ARCHIVE_API_URL` to your backend origin, such as `https://archive.example.com`, to prefill the app's server address. This is a public build variable; never put an access key in it.
-3. Set the backend's `ALLOWED_ORIGINS` to your deployed Vercel origin, such as `https://your-project.vercel.app`. Separate multiple origins with commas; add preview origins explicitly when testing preview deployments.
-4. Open the Vercel website, enter your backend address and access key under **Download server settings**, and select **Connect server**.
+**1. Create a codespace.** Select `main` and a **2-core** machine, then create the codespace. Wait for the browser editor and terminal to open. Use GitHub's default development environment, which includes Docker and Compose.
 
-Share the access key privately with trusted users. Anyone with it can see and delete this shared server's archives. Keys stay in browser memory and are cleared on reload.
+**2. Set an access key.** In the codespace terminal, start in the repository folder. For first-time setup:
 
-The Vercel HTTPS website requires an HTTPS backend; it cannot reliably use an HTTP localhost or private-network backend because of browser mixed-content and local-network restrictions. Use the local website when running everything locally. This repository does not provision or pay for a backend host.
+```bash
+cp .env.example .env
+```
+
+```bash
+docker run --rm python:3.12-slim-bookworm python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Open `.env` in the editor, paste the generated key after `ARCHIVE_API_KEY=`, and save. Keep an already configured `.env` when resuming an existing codespace. Do not commit this file or share the key publicly.
+
+**3. Build and start the app.** This builds the code in your codespace, so it also works before a public GHCR image is available. The first build can take several minutes.
+
+```bash
+docker compose -f compose.yaml -f compose.build.yaml up --build -d
+```
+
+**4. Open the app.** In the editor's **Ports** tab, select **Forward a Port** and enter `8000`. Keep its visibility **Private**, then select **Open in Browser**. Sign in to GitHub if prompted. The app opens at an HTTPS address like `https://CODESPACENAME-8000.app.github.dev`.
+
+Under **Download server settings**, use that forwarded HTTPS origin as the server address and enter your access key. The address should already be filled in. Do not use `localhost:8000` in Safari on your iPad; that would refer to the iPad rather than the codespace. The frontend and API share the forwarded origin, so the default `ALLOWED_ORIGINS` setting does not need to change.
+
+If the app does not open, check its logs in the codespace terminal:
+
+```bash
+docker compose logs --tail=100 archiver
+```
+
+**5. Stop when finished.** Open [your codespaces](https://github.com/codespaces), open the codespace's **…** menu, and choose **Stop codespace**. Resume it from the same page next time, then repeat the start command if the app is not already running. Closing a Safari tab alone does not immediately stop the codespace.
+
+### Free usage and storage
+
+GitHub Free personal accounts include **120 core-hours per month** (about **60 running hours on a 2-core machine**) and **15 GB-month of storage**. No payment method is required for the included allowance; without one, further usage is blocked after the quota is exhausted. Storage usage includes stopped codespaces, and development files and Docker images also take space. See [GitHub Codespaces billing](https://docs.github.com/en/billing/concepts/product-billing/github-codespaces).
+
+Codespaces is for on-demand development and testing, not permanent hosting. It normally stops after 30 minutes of inactivity. Save completed downloads to your iPad's Files app for long-term archiving; app files still expire according to `RETENTION_HOURS`, and deleting the codespace removes its data. YouTube downloads may also be blocked from cloud IP addresses and must be tested in your codespace.
 
 ## Configuration
 
