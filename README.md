@@ -27,31 +27,57 @@ Copyright status is not automatically determined. Archive videos you own, have p
 
 See [Vercel function limits](https://vercel.com/docs/functions/limitations) and [Leptos CSR deployment](https://book.leptos.dev/deployment/csr.html).
 
-## Easiest local setup: Docker
+## Run locally with Docker (recommended)
 
-Install Docker Desktop on the iMac (or use Docker on Linux). From a checkout of this repository:
+Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Mac or Windows, or Docker Engine with Compose on Linux. Docker includes Python, Rust, Node.js, and FFmpeg for this app; you do not need to install them separately.
+
+**1. Get the project.** Download this repository using **Code → Download ZIP**, extract it, and open a terminal in the extracted folder. Run every command below from that folder.
+
+**2. Set your access key.** For first-time setup, copy the settings file. Keep your existing `.env` when updating.
 
 ```bash
 cp .env.example .env
 ```
 
-Generate a secret and replace `ARCHIVE_API_KEY` in `.env` with its output:
+Generate a key using Docker:
 
 ```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+docker run --rm python:3.12-slim-bookworm python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
+
+Open `.env` in a text editor and paste the generated key after `ARCHIVE_API_KEY=`. Save the file and keep the key for signing in to the app. The other settings can stay as they are.
+
+**3. Start the app.** The first build can take several minutes.
 
 ```bash
 docker compose up --build -d
 ```
 
-Open `http://localhost:8000`. In **Download server settings**, enter the same access key and connect. To access it from a phone or tablet on the same trusted Wi-Fi network, open `http://YOUR-COMPUTER-LAN-IP:8000` and set that same address as the server. The computer must stay running, and its firewall must allow the connection. Use HTTPS when exposing the service outside your local network.
+Open [http://localhost:8000](http://localhost:8000). Under **Download server settings**, use `http://localhost:8000` as the server address, paste your access key, and select **Connect server**.
 
-The named `archives` volume preserves the database and files. The container runs as an unprivileged user and includes FFmpeg and Node.js for yt-dlp's YouTube support. Run **one backend process and one replica per data directory**; the in-process scheduler is not a distributed queue.
+To stop the app while keeping your archives:
 
-## Development without Docker
+```bash
+docker compose down
+```
 
-Requires Python 3.12+, Node.js 22+, FFmpeg/FFprobe, and Rust. macOS and Linux are supported directly; use Docker for Windows. The browser client does not need these tools installed.
+If startup fails, view the logs:
+
+```bash
+docker compose logs --tail=100 archiver
+```
+
+### Use another device on the same Wi-Fi
+
+Keep the host computer and Docker running. On your phone or tablet, open `http://YOUR-COMPUTER-LAN-IP:8000`, use that same address in server settings, and enter your access key. Allow port `8000` through the host computer's firewall if needed. Use HTTPS when exposing the service outside your trusted local network.
+
+Archives and history are stored in the Docker `archives` volume and survive restarts. Run **one backend process and one replica per data directory**; the queue is not distributed.
+
+## Run locally without Docker
+
+For macOS or Linux, install Python 3.12+, Node.js 22+, and FFmpeg/FFprobe. The setup script installs Rust and Trunk. Use Docker on Windows. Start in the project folder.
+
+**1. Install Python dependencies.**
 
 ```bash
 python3 -m venv .venv
@@ -62,42 +88,61 @@ source .venv/bin/activate
 ```
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 ```
+
+**2. Create your settings.** Skip the copy if you already have a configured `.env`.
 
 ```bash
 cp .env.example .env
 ```
 
-Replace the example access key with a generated secret, then start Python:
-
 ```bash
-python -m uvicorn backend.app:create_app --factory --env-file .env --host 127.0.0.1 --port 8000
+python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-In a second terminal, install the pinned Rust toolchain, WebAssembly target, and Trunk:
+Paste the generated key after `ARCHIVE_API_KEY=` in `.env` and save the file.
+
+**3. Build the website and start the app.** The setup script installs the pinned Rust toolchain and Trunk.
 
 ```bash
 bash scripts/install-frontend.sh
 ```
 
 ```bash
+bash scripts/build-frontend.sh
+```
+
+```bash
+python -m uvicorn backend.app:create_app --factory --env-file .env --host 127.0.0.1 --port 8000
+```
+
+Open [http://localhost:8000](http://localhost:8000), use that address in server settings, and connect with your access key. Keep the terminal running; press **Ctrl+C** to stop the app.
+
+For automatic frontend reloads during development, leave Python running and open a second terminal in the project folder:
+
+```bash
 cd frontend
 ```
 
 ```bash
-NO_COLOR=true trunk serve
+NO_COLOR=true "$HOME/.cargo/bin/trunk" serve
 ```
 
-Open `http://localhost:8080`, keep the server address as `http://localhost:8080`, and enter your access key. Trunk proxies `/api/` to Python. To instead serve the production frontend from Python, run `bash scripts/build-frontend.sh` from the repository root, then restart Python and open `http://localhost:8000`.
+Open [http://localhost:8080](http://localhost:8080) and use that address in server settings. Trunk forwards API requests to Python on port `8000`. To run the backend tests, first install `requirements-dev.txt` in your active virtual environment.
 
 ## Deploy the frontend to Vercel
 
-1. Import this GitHub repository into Vercel with the repository root as the project root and **Other** as the framework. `vercel.json` supplies the install command, build command, and `frontend/dist` output directory.
-2. Optionally set the **public build variable** `ARCHIVE_API_URL` to your backend's origin, such as `https://archive.example.com`. This address is compiled into the browser app; never put a key or password in it. Users can also enter the address in server settings.
-3. Deploy the Python Docker container to a container host with an HTTPS endpoint and a persistent `/data` volume. Set `ARCHIVE_API_KEY` to a generated secret. Configure port `8000`, one replica, and one worker.
-4. Set the backend's `ALLOWED_ORIGINS` to the exact Vercel origin, for example `https://your-project.vercel.app`. Multiple origins are comma-separated. Add preview origins explicitly when testing a Vercel preview. Wildcards are rejected.
-5. Open the Vercel website, connect to the backend, and enter the access key. Share the key privately with trusted users. Anyone with the key can see and delete this shared server's archives. Keys are held in browser memory and are cleared on a page reload.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FDisabledAbel%2FEasyYouTubeVideoDownloader)
+
+**This button deploys the website only. You also need a running Python backend with HTTPS.** It uses this repository's default branch; merge the initial implementation PR before deploying from `main`.
+
+1. Deploy the Python Docker container to a container host with an HTTPS endpoint and a persistent `/data` volume. Set a generated `ARCHIVE_API_KEY`, use port `8000`, and run one replica with one worker.
+2. Click **Deploy with Vercel** above. Use the repository root and **Other** as the framework. `vercel.json` supplies the build settings. Optionally set `ARCHIVE_API_URL` to your backend origin, such as `https://archive.example.com`, to prefill the app's server address. This is a public build variable; never put an access key in it.
+3. Set the backend's `ALLOWED_ORIGINS` to your deployed Vercel origin, such as `https://your-project.vercel.app`. Separate multiple origins with commas; add preview origins explicitly when testing preview deployments.
+4. Open the Vercel website, enter your backend address and access key under **Download server settings**, and select **Connect server**.
+
+Share the access key privately with trusted users. Anyone with it can see and delete this shared server's archives. Keys stay in browser memory and are cleared on reload.
 
 The Vercel HTTPS website requires an HTTPS backend; it cannot reliably use an HTTP localhost or private-network backend because of browser mixed-content and local-network restrictions. Use the local website when running everything locally. This repository does not provision or pay for a backend host.
 
