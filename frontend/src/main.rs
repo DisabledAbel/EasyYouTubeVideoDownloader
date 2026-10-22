@@ -84,11 +84,22 @@ fn App() -> impl IntoView {
     Effect::new(move |_| {
         let value = theme.get();
         if let Some(window) = web_sys::window() {
-            if let Some(root) = window
-                .document()
-                .and_then(|document| document.document_element())
-            {
-                let _ = root.set_attribute("data-theme", &value);
+            if let Some(document) = window.document() {
+                if let Some(root) = document.document_element() {
+                    let _ = root.set_attribute("data-theme", &value);
+                }
+                for mode in ["light", "dark"] {
+                    if let Some(meta) = document.get_element_by_id(&format!("theme-color-{mode}")) {
+                        let media = if value == "system" {
+                            format!("(prefers-color-scheme: {mode})")
+                        } else if value == mode {
+                            "all".into()
+                        } else {
+                            "not all".into()
+                        };
+                        let _ = meta.set_attribute("media", &media);
+                    }
+                }
             }
             // Appearance remains usable when browser storage is unavailable.
             if let Ok(Some(storage)) = window.local_storage() {
