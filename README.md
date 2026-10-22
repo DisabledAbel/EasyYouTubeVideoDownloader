@@ -29,7 +29,9 @@ See [Vercel function limits](https://vercel.com/docs/functions/limitations) and 
 
 ## Run locally with Docker (recommended)
 
-Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Mac or Windows, or Docker Engine with Compose on Linux. Docker includes Python, Rust, Node.js, and FFmpeg for this app; you do not need to install them separately.
+Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Mac or Windows, or Docker Engine with Compose on Linux. The prebuilt image includes Python, Node.js, and FFmpeg; you do not need to install them or compile Rust. Images support Intel/AMD (`amd64`) and Apple Silicon (`arm64`).
+
+The prebuilt image becomes available after the first successful publishing run on `main` and the package is made public. Until then, use [Build the image yourself](#build-the-image-yourself) below.
 
 **1. Get the project.** Download this repository using **Code → Download ZIP**, extract it, and open a terminal in the extracted folder. Run every command below from that folder.
 
@@ -47,10 +49,14 @@ docker run --rm python:3.12-slim-bookworm python -c "import secrets; print(secre
 
 Open `.env` in a text editor and paste the generated key after `ARCHIVE_API_KEY=`. Save the file and keep the key for signing in to the app. The other settings can stay as they are.
 
-**3. Start the app.** The first build can take several minutes.
+**3. Download the image and start the app.** Docker chooses the image for your computer's architecture.
 
 ```bash
-docker compose up --build -d
+docker compose pull
+```
+
+```bash
+docker compose up -d
 ```
 
 Open [http://localhost:8000](http://localhost:8000). Under **Download server settings**, use `http://localhost:8000` as the server address, paste your access key, and select **Connect server**.
@@ -66,6 +72,18 @@ If startup fails, view the logs:
 ```bash
 docker compose logs --tail=100 archiver
 ```
+
+To update, run `docker compose pull` followed by `docker compose up -d` again. Your configured access key and archive volume are preserved.
+
+### Build the image yourself
+
+To run your own code changes or use the app before an image is published, complete the same `.env` setup above, then build locally:
+
+```bash
+docker compose -f compose.yaml -f compose.build.yaml up --build -d
+```
+
+This uses a separate `:local` image tag and the same settings, ports, and archive volume. The first build can take several minutes.
 
 ### Use another device on the same Wi-Fi
 
@@ -146,6 +164,21 @@ Share the access key privately with trusted users. Anyone with it can see and de
 
 The Vercel HTTPS website requires an HTTPS backend; it cannot reliably use an HTTP localhost or private-network backend because of browser mixed-content and local-network restrictions. Use the local website when running everything locally. This repository does not provision or pay for a backend host.
 
+## Publishing images to GHCR
+
+The **Publish Docker image to GHCR** job in the **CI** workflow runs after backend tests, the frontend build, and container build/startup checks on both architectures pass. It publishes automatically on pushes to `main`. To publish manually, open **Actions → CI → Run workflow**, select `main`, and run it. Pull requests and manual runs on other branches do not publish.
+
+Images are published to `ghcr.io/disabledabel/easyyoutubevideodownloader` with two tags:
+
+- `latest`: the latest successfully published `main` commit.
+- `sha-<full-commit-sha>`: an image for a specific commit.
+
+The workflow uses GitHub's built-in `GITHUB_TOKEN` with `packages: write`; no PAT or extra repository secret is needed. Image labels link the package to this repository.
+
+**One-time owner setup after the first publish:** GitHub creates new container packages as private. On your GitHub profile, open **Packages → easyyoutubevideodownloader → Package settings → Change visibility → Public** so users can pull without signing in. See [GitHub's package visibility instructions](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility).
+
+If publishing reports a package permission error, check that the package grants Actions access to this repository and that repository or organization policy permits package writes. An existing private package requires authentication until its visibility is changed to public.
+
 ## Configuration
 
 See [.env.example](.env.example) for all settings. Python loads `.env` only when started with `--env-file .env` or via Docker Compose. Files are automatically removed after the retention period, so download your copies for long-term storage. ZIP storage roughly doubles the media's disk usage; with the defaults, allow at least 20 GiB plus working space for a full server. Use a host-level disk quota for a strict disk boundary.
@@ -168,7 +201,7 @@ cargo fmt --manifest-path frontend/Cargo.toml -- --check
 bash scripts/build-frontend.sh
 ```
 
-GitHub Actions runs backend tests, builds the Rust/WebAssembly website, and builds the Docker image on pull requests, pushes to `main`, and manual dispatch. It uploads the website build as an artifact. Tests simulate the media provider; they do not download third-party videos.
+GitHub Actions runs backend tests, builds the Rust/WebAssembly website, and builds and starts the Docker image on Intel/AMD and ARM runners on pull requests, pushes to `main`, and manual dispatch. It uploads the website build as an artifact. Successful runs on `main` also publish the multi-platform image to GHCR. Tests simulate the media provider; they do not download third-party videos.
 
 ## License
 

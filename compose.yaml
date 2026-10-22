@@ -1,6 +1,6 @@
 services:
   archiver:
-    build: .
+    image: ghcr.io/disabledabel/easyyoutubevideodownloader:latest
     ports:
       - "8000:8000"
     env_file: .env
