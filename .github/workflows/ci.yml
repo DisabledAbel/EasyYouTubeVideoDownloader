@@ -39,7 +39,7 @@ jobs:
       - name: Verify container startup and download dependencies
         run: |
           docker run -d --name archiver -p 8000:8000 -e ARCHIVE_API_KEY=ci-only-test-key-not-for-production easy-youtube-video-downloader:ci
-          curl --fail --retry 12 --retry-delay 2 --retry-connrefused http://127.0.0.1:8000/health
+          curl --fail --retry 12 --retry-delay 2 --retry-connrefused --retry-all-errors http://127.0.0.1:8000/health
           docker exec archiver node --version
           docker exec archiver ffmpeg -version
           docker exec archiver python -c "import yt_dlp_ejs"
