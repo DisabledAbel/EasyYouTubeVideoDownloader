@@ -298,6 +298,7 @@ dependencies = [
  "send_wrapper",
  "serde",
  "serde_json",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

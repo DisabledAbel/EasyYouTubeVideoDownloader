@@ -191,11 +191,23 @@ GitHub Free personal accounts include **120 core-hours per month** (about **60 r
 
 Codespaces is for on-demand development and testing, not permanent hosting. It normally stops after 30 minutes of inactivity. Save completed downloads to your iPad's Files app for long-term archiving; app files still expire according to `RETENTION_HOURS`, and deleting the codespace removes its data. YouTube downloads may also be blocked from cloud IP addresses and must be tested in your codespace.
 
+## Optional YouTube sign-in cookies
+
+If YouTube asks you to sign in, you can optionally supply a Netscape-format `cookies.txt` file. OAuth login is not supported by yt-dlp. Cookies may help, but do not guarantee downloads from Codespaces or any other cloud host.
+
+1. Export **only youtube.com cookies** from a browser you trust, following [yt-dlp’s cookie export guide](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies). This feature imports an existing file; it cannot export cookies from Safari on your iPad or provide Google sign-in. You can select a file already saved in your iPad’s Files app.
+2. Connect to your download server. Expand **Download server settings**, then select **Upload YouTube cookies.txt** and choose the file (up to 64 KiB).
+3. Retry the failed download. Use **Remove saved YouTube cookies** when finished, or upload a replacement if the session expires.
+
+Treat this file like a password: never commit it, put it in a public folder, or send it in chat. Only upload it to your own trusted server over HTTPS (or localhost). Anyone with the server access key can replace or remove the shared session. yt-dlp warns that using an account can lead to temporary or permanent account restrictions.
+
+The server stores the file privately under `ARCHIVE_DATA_DIR/.credentials/`, outside all download folders. It survives restarts until removed; the download retention setting does not delete it. Each worker uses an in-memory copy that is never included in media, metadata, or ZIP files. Removing cookies affects future downloads and does not end an already running download or revoke the session at Google. The separate file in your Files app must be deleted separately if desired.
+
 ## Configuration
 
 See [.env.example](.env.example) for all settings. Python loads `.env` only when started with `--env-file .env` or via Docker Compose. Files are automatically removed after the retention period, so download your copies for long-term storage. ZIP storage roughly doubles the media's disk usage; with the defaults, allow at least 20 GiB plus working space for a full server. Use a host-level disk quota for a strict disk boundary.
 
-Progress percentages describe the current media stream and may restart when audio starts or processing begins. Creator-provided English captions are saved when available; automatic captions, playlists, live streams, DRM, login cookies, and geographic restriction workarounds are not included. Missing MP4-compatible formats can fail rather than silently change the requested format.
+Progress percentages describe the current media stream and may restart when audio starts or processing begins. Creator-provided English captions are saved when available; automatic captions, playlists, live streams, DRM, and geographic restriction workarounds are not included. Missing MP4-compatible formats can fail rather than silently change the requested format.
 
 YouTube may block downloads from cloud IP addresses or change its extraction requirements. Such failures appear in the archive list; delete a failed record or submit its link again to retry. Dependabot proposes yt-dlp updates weekly. Do not assume that any specific cloud host or video will work until tested.
 
