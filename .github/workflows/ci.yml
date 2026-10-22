@@ -24,6 +24,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/trunk
+            frontend/target
+          key: ${{ runner.os }}-cargo-trunk-0.21.14-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('frontend/Cargo.lock') }}
       - run: bash scripts/install-frontend.sh
       - run: cargo fmt --manifest-path frontend/Cargo.toml -- --check
       - run: bash scripts/build-frontend.sh

@@ -40,16 +40,19 @@ async fn api(
             .to_string()
     })?;
     let status = response.status();
-    let value: Value = response.json().await.map_err(|_| {
-        "This address did not return the download API. Check your server address.".to_string()
-    })?;
     if !(200..300).contains(&status) {
-        return Err(value["detail"]
-            .as_str()
-            .unwrap_or("The server could not process this request.")
-            .to_string());
+        let detail = response
+            .json::<Value>()
+            .await
+            .ok()
+            .and_then(|value| value["detail"].as_str().map(str::to_string));
+        return Err(detail.unwrap_or_else(|| {
+            format!("The server could not process this request (HTTP {status}).")
+        }));
     }
-    Ok(value)
+    response.json().await.map_err(|_| {
+        "This address did not return the download API. Check your server address.".to_string()
+    })
 }
 
 async fn fetch_jobs(base: String, key: String, jobs: RwSignal<Vec<Job>>) -> Result<(), String> {
