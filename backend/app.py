@@ -21,6 +21,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from backend.files import directory_bytes
 from backend.store import Store, public_job
 from backend.urls import canonical_url
 
@@ -58,7 +59,7 @@ async def run_download(store, job, max_bytes, timeout, duration):
             if time.monotonic() - started > timeout:
                 raise ValueError("Download timed out. Please try again.")
             # Allow room for the stored ZIP copy while enforcing a total disk budget.
-            if sum(p.stat().st_size for p in directory.iterdir() if p.is_file()) > max_bytes * 2 + 1048576:
+            if directory_bytes(directory) > max_bytes * 2 + 1048576:
                 raise ValueError("Archive exceeds the configured size limit.")
             await asyncio.sleep(0.25)
         await reader

@@ -8,6 +8,7 @@ from zipfile import ZIP_STORED, ZipFile
 
 from yt_dlp import YoutubeDL
 
+from backend.files import directory_bytes
 from backend.urls import canonical_url
 
 
@@ -28,7 +29,7 @@ def download(job, directory: Path, max_bytes: int, max_duration: int):
 
     def progress(data):
         nonlocal last_progress
-        if sum(p.stat().st_size for p in directory.iterdir() if p.is_file()) > max_bytes:
+        if directory_bytes(directory) > max_bytes:
             raise ValueError("Video exceeds the configured size limit.")
         total = data.get("total_bytes") or data.get("total_bytes_estimate") or 0
         percent = min(99, int(data.get("downloaded_bytes", 0) * 100 / total)) if total else 0
@@ -66,7 +67,7 @@ def download(job, directory: Path, max_bytes: int, max_duration: int):
     media = [p for p in directory.glob("media.*") if p.suffix in {".mp4", ".m4a", ".webm", ".mkv"}]
     if len(media) != 1 or media[0].stat().st_size == 0:
         raise ValueError("No completed media file was produced. The video may exceed the size limit.")
-    if sum(p.stat().st_size for p in directory.iterdir() if p.is_file()) > max_bytes:
+    if directory_bytes(directory) > max_bytes:
         raise ValueError("Video exceeds the configured size limit.")
     metadata = {key: info.get(key) for key in
                 ("id", "title", "description", "uploader", "upload_date", "duration", "license")}
