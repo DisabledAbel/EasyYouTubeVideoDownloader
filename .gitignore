@@ -1,0 +1,8 @@
+/data/
+/frontend/dist/
+/frontend/target/
+/.venv/
+/.env
+__pycache__/
+.pytest_cache/
+/.vercel/
