@@ -1,4 +1,4 @@
-FROM rust:1.99.1-bookworm AS frontend
+FROM --platform=$BUILDPLATFORM rust:1.99.1-bookworm AS frontend
 WORKDIR /app
 COPY rust-toolchain.toml ./
 RUN rustup target add wasm32-unknown-unknown && cargo install trunk --locked --version 0.21.14

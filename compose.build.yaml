@@ -1,0 +1,4 @@
+services:
+  archiver:
+    image: easy-youtube-video-downloader:local
+    build: .
