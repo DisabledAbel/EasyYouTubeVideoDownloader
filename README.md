@@ -30,7 +30,7 @@ The website and download server run together. On iPad, Codespaces runs the serve
 
 Use the button above, select `main` and a **2-core** machine, and create the codespace. Wait for the browser editor to load, then open its terminal. GitHub's default development environment includes Docker and Compose.
 
-The button opens the setup page; it does not start the app automatically. Run the commands below in the repository folder.
+The button opens the setup page; it does not start the app automatically. Codespaces clones the repository for you, so skip the local clone steps. Run the commands below in the repository folder.
 
 ### 2. Create your access key
 
@@ -104,7 +104,7 @@ The first button starts processing on the server. The **Download media** and **D
 
 Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Mac or Windows, or Docker Engine with Compose on Linux. The image supports Intel/AMD and Apple Silicon and includes Python, Node.js, and FFmpeg.
 
-1. Download this repository using **Code → Download ZIP**, extract it, and open a terminal in that folder.
+1. Follow [Get the project locally](#get-the-project-locally) below.
 2. Follow [Create your access key](#2-create-your-access-key) above.
 3. Start the app:
 
@@ -171,7 +171,27 @@ Run **one backend process and one replica per data directory**. The queue is not
 
 Only creator-provided English captions are supported. Automatic captions, playlists, live streams, DRM, and geographic restriction workarounds are not included. A download can fail if MP4-compatible formats are unavailable. YouTube can change its requirements; Dependabot proposes yt-dlp updates weekly.
 
+## Get the project locally
+
+For Docker or development on your own computer, install Git if needed, then open a terminal and clone the repository:
+
+```bash
+git clone https://github.com/DisabledAbel/EasyYouTubeVideoDownloader.git
+```
+
+Enter the project folder:
+
+```bash
+cd EasyYouTubeVideoDownloader
+```
+
+Run the remaining setup commands from this folder. If you already have a checkout, open that folder instead of cloning again. Without Git, use **Code → Download ZIP**, extract it, and open a terminal in the extracted folder.
+
+Continue with [Docker setup](#docker-mac-windows-or-linux) or [Development](#development).
+
 ## Development
+
+Start with [Get the project locally](#get-the-project-locally), or use the existing repository folder in Codespaces.
 
 ### Build your changes
 
