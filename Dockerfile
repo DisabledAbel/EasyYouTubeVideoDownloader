@@ -7,7 +7,7 @@ COPY scripts/build-frontend.sh ./scripts/build-frontend.sh
 ENV NO_COLOR=true
 RUN bash scripts/build-frontend.sh
 
-FROM node:24-bookworm-slim AS javascript
+FROM node:25-bookworm-slim AS javascript
 
 FROM python:3.12-slim-bookworm
 WORKDIR /app
