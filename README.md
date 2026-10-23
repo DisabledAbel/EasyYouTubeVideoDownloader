@@ -214,6 +214,14 @@ Treat the file like a password: never commit it, send it in chat, or place it in
 
 Cookies are stored privately under `ARCHIVE_DATA_DIR/.credentials/`, outside download folders, and are never included in downloads. They survive restarts and are not deleted by download retention. Removing them affects future downloads; it does not stop an active download, revoke the session at Google, or delete the original file on your device.
 
+## Update notifications
+
+Official Docker images check for updates when you connect, then every 15 minutes while the page is open. When a newer published image is available, **New update available** appears above your downloads. Expand **How to update** for the commands to run in your server's project folder or Codespaces terminal. Wait for active downloads to finish, update, then refresh the page and reconnect.
+
+The check reads the public GHCR `latest` image and compares its revision with the running image through GitHub. It does not send your access key, cookies, or download history. Network errors and rate limits leave the notice hidden and are retried on a later check. Local/source builds without an official build revision do not show this notice.
+
+Existing installations need one manual update to receive this feature. Notifications announce updates; installation remains manual.
+
 ## Troubleshooting
 
 | Problem | What to check |

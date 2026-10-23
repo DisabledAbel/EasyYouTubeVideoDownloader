@@ -26,6 +26,7 @@ from backend.cookies import MAX_COOKIE_BYTES, cookie_path, save_cookies
 from backend.files import directory_bytes
 from backend.store import Store, public_job
 from backend.urls import canonical_url
+from backend.updates import UpdateChecker
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,7 @@ def create_app(*, data_dir=None, api_key=None, frontend_dir=None, runner=run_dow
         raise RuntimeError("Set ARCHIVE_API_KEY to a random secret of at least 24 characters.")
     root = Path(data_dir or os.environ.get("ARCHIVE_DATA_DIR", "data")).resolve()
     store = Store(root)
+    updates = UpdateChecker(os.environ.get("ARCHIVE_BUILD_REVISION", ""))
     for job in store.list():
         if job["status"] == "failed":
             shutil.rmtree(root / job["id"], ignore_errors=True)
@@ -175,6 +177,11 @@ def create_app(*, data_dir=None, api_key=None, frontend_dir=None, runner=run_dow
     @app.get("/health")
     def health():
         return {"status": "ok"}
+
+    @app.get("/api/updates", dependencies=[Depends(authorized)])
+    def update_status():
+        # FastAPI runs synchronous routes in its thread pool, away from the queue.
+        return updates.check()
 
     @app.get("/api/settings/youtube-cookies", dependencies=[Depends(authorized)])
     async def cookie_status():

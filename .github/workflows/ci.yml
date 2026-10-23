@@ -51,7 +51,7 @@ jobs:
           cp .env.example .env
           docker compose config --quiet
           docker compose -f compose.yaml -f compose.build.yaml config --quiet
-      - run: docker build -t easy-youtube-video-downloader:ci .
+      - run: docker build --build-arg BUILD_REVISION=${{ github.sha }} -t easy-youtube-video-downloader:ci .
       - name: Verify container startup and download dependencies
         run: |
           docker run -d --name archiver -p 8000:8000 -e ARCHIVE_API_KEY=ci-only-test-key-not-for-production easy-youtube-video-downloader:ci
@@ -59,6 +59,7 @@ jobs:
           docker exec archiver node --version
           docker exec archiver ffmpeg -version
           docker exec archiver python -c "import yt_dlp_ejs"
+          docker exec archiver python -c "import os; assert os.environ['ARCHIVE_BUILD_REVISION'] == '${{ github.sha }}'"
       - name: Container logs
         if: failure()
         run: docker logs archiver || true
@@ -91,10 +92,13 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            BUILD_REVISION=${{ github.sha }}
           tags: |
             ${{ steps.image.outputs.name }}:latest
             ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
           annotations: |
+            index:org.opencontainers.image.revision=${{ github.sha }}
             index:org.opencontainers.image.description=YouTube video downloader for Windows and macOS via Docker Desktop, and Linux. Supports Intel/AMD and ARM64.
           labels: |
             org.opencontainers.image.description=YouTube video downloader for Windows and macOS via Docker Desktop, and Linux. Supports Intel/AMD and ARM64.
