@@ -282,6 +282,7 @@ fn App() -> impl IntoView {
                     <Show when=move || !notice.get().is_empty()><p class="notice">{move || notice.get()}</p></Show>
                     <Show when=move || !poll_error.get().is_empty()><p class="error">{move || poll_error.get()}</p></Show>
                 </div>
+                <UpdateNotice connection/>
                 <section class="library" aria-labelledby="library-heading">
                     <div class="section-heading"><h2 id="library-heading">"Your downloads"</h2><span>{move || format!("{:02} recordings", jobs.get().len())}</span></div>
                     <Show when=move || jobs.get().is_empty()>
@@ -311,6 +312,55 @@ fn App() -> impl IntoView {
             </main>
             <footer><span>"Made for keeping."</span><p>"Download public-domain videos and videos you have permission to download. Copyright status is not automatically verified."</p></footer>
         </div>
+    }
+}
+
+#[component]
+fn UpdateNotice(connection: RwSignal<Option<(String, String)>>) -> impl IntoView {
+    let available = RwSignal::new(false);
+    let request_id = RwSignal::new(0_u64);
+    Effect::new(move |_| {
+        let active = connection.get();
+        available.set(false);
+        // Invalidate pending responses, including reconnecting to the same server.
+        request_id.update(|id| *id += 1);
+        if let Some((base, key)) = active {
+            let check = move || {
+                request_id.update(|id| *id += 1);
+                let id = request_id.get_untracked();
+                let (base, key) = (base.clone(), key.clone());
+                spawn_local(async move {
+                    let result = api(&base, &key, "GET", "/api/updates", None).await;
+                    if request_id.try_get_untracked() != Some(id)
+                        || connection.try_get_untracked().flatten() != Some((base, key))
+                    {
+                        return;
+                    }
+                    let is_available = result
+                        .ok()
+                        .is_some_and(|data| data["status"].as_str() == Some("available"));
+                    let _ = available.try_set(is_available);
+                });
+            };
+            check();
+            let interval = send_wrapper::SendWrapper::new(Interval::new(15 * 60 * 1000, check));
+            on_cleanup(move || drop(interval));
+        }
+    });
+    view! {
+        <Show when=move || available.get()>
+            <aside class="update-notice" aria-label="App update">
+                <p role="status"><strong>"New update available"</strong></p>
+                <details>
+                    <summary>"How to update"</summary>
+                    <p>"Wait for active downloads to finish. In the project folder on your server or in your Codespaces terminal, run each command:"</p>
+                    <pre><code>"docker compose pull"</code></pre>
+                    <pre><code>"docker compose up -d"</code></pre>
+                    <p>"Then refresh this page and reconnect with your access key. Your settings and saved downloads are kept; normal file retention still applies."</p>
+                    <a href="https://github.com/DisabledAbel/EasyYouTubeVideoDownloader/pkgs/container/easyyoutubevideodownloader" target="_blank" rel="noopener noreferrer">"View published image ↗"</a>
+                </details>
+            </aside>
+        </Show>
     }
 }
 

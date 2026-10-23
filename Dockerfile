@@ -20,6 +20,8 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY backend ./backend
 COPY --from=frontend /app/frontend/dist ./frontend/dist
+ARG BUILD_REVISION=""
+ENV ARCHIVE_BUILD_REVISION=$BUILD_REVISION
 USER archiver
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
