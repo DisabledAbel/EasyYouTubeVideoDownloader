@@ -216,12 +216,6 @@ docker compose up -d
 
 To update the prebuilt app, run `docker compose pull`, then `docker compose up -d` again. These commands preserve your `.env` and download volume.
 
-### Free usage and saved files
-
-GitHub Free personal accounts include **120 core-hours per month** (about **60 hours on a 2-core machine**) and **15 GB-month of storage**. You can use the included allowance without a payment method; usage is blocked when it runs out. Stopped codespaces still consume storage. Check [GitHub's current allowance and billing details](https://docs.github.com/en/billing/concepts/product-billing/github-codespaces).
-
-Codespaces is for on-demand development and testing, not permanent hosting. **Save completed files to your iPad's Files app.** Server downloads expire after 24 hours by default, and deleting a codespace removes its data.
-
 ## Download a video
 
 1. Open **Download server settings**, enter your access key, and select **Connect server**. Reconnect after reloading or reopening the page; the key is held only in memory.
