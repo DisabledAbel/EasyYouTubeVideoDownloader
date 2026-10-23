@@ -44,6 +44,8 @@ Continue with [Docker setup](#docker-mac-windows-or-linux) or [Development](#dev
 
 Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Mac or Windows, or Docker Engine with Compose on Linux. The image supports Intel/AMD and Apple Silicon and includes Python, Node.js, and FFmpeg.
 
+**Windows and macOS use the same image.** The package page lists `linux/amd64` and `linux/arm64` because these describe the system inside the container. Docker Desktop runs that Linux environment on your computer and selects the matching image automatically: `amd64` for Intel/AMD PCs and Intel Macs, or `arm64` for Apple Silicon Macs. On Windows, use Docker Desktop's **Linux containers** mode. See [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/) and [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/).
+
 1. Follow [Get the project locally](#get-the-project-locally) above.
 2. Follow [Create your access key](#2-create-your-access-key) below.
 3. Start the app:
