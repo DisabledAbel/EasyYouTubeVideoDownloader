@@ -231,16 +231,6 @@ For startup or server errors, view the logs:
 docker compose logs --tail=100 archiver
 ```
 
-## Configuration and limits
-
-See [.env.example](.env.example) for settings. Docker Compose reads `.env`; when running Python directly, pass `--env-file .env` as shown in [Development](#development).
-
-Default limits: **one active download**, five queued/running jobs, 20 records, two-hour source duration, 15-minute processing timeout, 512 MiB per download's contents, and 24-hour retention. ZIP files roughly double media storage; a full server at these defaults needs at least 20 GiB plus working space. Lower the limits for a small codespace; use a host-level disk quota for a strict storage boundary.
-
-Run **one backend process and one replica per data directory**. The queue is not distributed. Interrupted downloads are marked failed and can be retried.
-
-Only creator-provided English captions are supported. Automatic captions, playlists, live streams, DRM, and geographic restriction workarounds are not included. A download can fail if MP4-compatible formats are unavailable. YouTube can change its requirements; Dependabot proposes yt-dlp updates weekly.
-
 ## License
 
 [GPL-3.0](LICENSE). Third-party components retain their own licenses.
