@@ -124,34 +124,6 @@ python -m uvicorn backend.app:create_app --factory --env-file .env --host 127.0.
 
 Open [http://localhost:8000](http://localhost:8000) and connect with your access key. Keep the terminal running; press **Ctrl+C** to stop.
 
-For frontend reloads, leave Python running and open a second terminal in the repository folder:
-
-```bash
-cd frontend
-```
-
-```bash
-NO_COLOR=true "$HOME/.cargo/bin/trunk" serve
-```
-
-Open [http://localhost:8080](http://localhost:8080), using that address in server settings. Trunk forwards API requests to Python on port 8000.
-
-### Checks
-
-From the repository root, with the Python virtual environment active and frontend tools installed:
-
-```bash
-python -m pytest -q
-```
-
-```bash
-cargo fmt --manifest-path frontend/Cargo.toml -- --check
-```
-
-```bash
-bash scripts/build-frontend.sh
-```
-
 GitHub Actions runs backend tests, builds the frontend, and builds and starts the Docker image on Intel/AMD and ARM runners. Successful runs on `main` publish the multi-platform image to GHCR. Tests simulate the media provider; passing CI does not verify live YouTube downloads.
 
 ## GitHub Codespaces (iPad)
