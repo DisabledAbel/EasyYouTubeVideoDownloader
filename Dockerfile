@@ -9,7 +9,7 @@ RUN bash scripts/build-frontend.sh
 
 FROM node:24-bookworm-slim AS javascript
 
-FROM python:3.12-slim-bookworm
+FROM python:3.15-slim-bookworm
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 ARCHIVE_DATA_DIR=/data
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates libstdc++6 \
